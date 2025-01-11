@@ -5,12 +5,15 @@
 import os
 import json
 import cv2
-
 import shutil
+from config_reader import load_config
 
 def convert_everything_to_mp4():
-    cmd = 'bash scripts/swf2mp4.sh'
-
+    if os.name == 'nt':
+        cmd = 'powershell scripts/swf2mp4.ps1'
+    else:
+        cmd = 'bash scripts/swf2mp4.sh'
+        
     os.system(cmd)
 
 
@@ -117,10 +120,12 @@ def extract_all_yt_instances(content):
 
         
 def main():
+    config = load_config()
+
     # 1. Convert .swf, .mkv file to mp4.
     convert_everything_to_mp4()
 
-    content = json.load(open('WLASL_v0.3.json'))
+    content = json.load(open(config['metadata_file']))
     extract_all_yt_instances(content)
 
 

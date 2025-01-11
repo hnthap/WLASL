@@ -4,11 +4,12 @@ import time
 import sys
 import urllib.request
 from multiprocessing.dummy import Pool
-
 import random
+from config_reader import load_config
 
 import logging
-logging.basicConfig(filename='download_{}.log'.format(int(time.time())), filemode='w', level=logging.DEBUG)
+os.makedirs('log', exist_ok=True)
+logging.basicConfig(filename='log/download_{}.log'.format(int(time.time())), filemode='w', level=logging.DEBUG)
 logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
 # Set this to youtube-dl if you want to use youtube-dl.
@@ -46,6 +47,9 @@ def download_youtube(url, dirname, video_id):
 
 
 def download_aslpro(url, dirname, video_id):
+    logging.warning('Skipping ASLPro video {}'.format(video_id))
+    return
+
     saveto = os.path.join(dirname, '{}.swf'.format(video_id))
     if os.path.exists(saveto):
         logging.info('{} exists at {}'.format(video_id, saveto))
@@ -80,15 +84,23 @@ def download_nonyt_videos(indexfile, saveto='raw_videos'):
     if not os.path.exists(saveto):
         os.mkdir(saveto)
 
-    for entry in content:
+    for i, entry in enumerate(content, 1):
+        
         gloss = entry['gloss']
         instances = entry['instances']
 
-        for inst in instances:
+        for j, inst in enumerate(instances, 1):
+            
+            print('[%.2f %%] -- [%.2f %%]' % (100.0 * i / len(content),
+                                              100.0 * j / len(instances)))
             video_url = inst['url']
             video_id = inst['video_id']
             
             logging.info('gloss: {}, video: {}.'.format(gloss, video_id))
+
+            if 'aslsearch.com' in video_url:
+                logging.warning('Skipping ASLSearch video {}'.format(video_id))
+                continue
 
             download_method = select_download_method(video_url)    
             
@@ -114,11 +126,12 @@ def download_yt_videos(indexfile, saveto='raw_videos'):
     if not os.path.exists(saveto):
         os.mkdir(saveto)
     
-    for entry in content:
+    for i, entry in enumerate(content, 1):
+        
         gloss = entry['gloss']
         instances = entry['instances']
 
-        for inst in instances:
+        for j, inst in enumerate(instances, 1):
             video_url = inst['url']
             video_id = inst['video_id']
 
@@ -128,26 +141,32 @@ def download_yt_videos(indexfile, saveto='raw_videos'):
             if os.path.exists(os.path.join(saveto, video_url[-11:] + '.mp4')) or os.path.exists(os.path.join(saveto, video_url[-11:] + '.mkv')):
                 logging.info('YouTube videos {} already exists.'.format(video_url))
                 continue
+
+            print('[%.2f %%] -- [%.2f %%]' % (100.0 * i / len(content),
+                                              100.0 * j / len(instances)))
+            
+            cmd = f"{youtube_downloader} \"{{}}\" -o \"{{}}%(id)s.%(ext)s\""
+            cmd = cmd.format(video_url, saveto + os.path.sep)
+
+            rv = os.system(cmd)
+            
+            if not rv:
+                logging.info('Finish downloading youtube video url {}'.format(video_url))
             else:
-                cmd = f"{youtube_downloader} \"{{}}\" -o \"{{}}%(id)s.%(ext)s\""
-                cmd = cmd.format(video_url, saveto + os.path.sep)
+                logging.error('Unsuccessful downloading - youtube video url {}'.format(video_url))
 
-                rv = os.system(cmd)
-                
-                if not rv:
-                    logging.info('Finish downloading youtube video url {}'.format(video_url))
-                else:
-                    logging.error('Unsuccessful downloading - youtube video url {}'.format(video_url))
-
-                # please be nice to the host - take pauses and avoid spamming
-                time.sleep(random.uniform(1.0, 1.5))
+            # please be nice to the host - take pauses and avoid spamming
+            time.sleep(random.uniform(1.0, 1.5))
     
 
 if __name__ == '__main__':
+    config = load_config()
+    metadata_file = config['metadata_file']
+
     logging.info('Start downloading non-youtube videos.')
-    download_nonyt_videos('WLASL_v0.3.json')
+    download_nonyt_videos(metadata_file)
 
     check_youtube_dl_version()
     logging.info('Start downloading youtube videos.')
-    download_yt_videos('WLASL_v0.3.json')
+    download_yt_videos(metadata_file)
 

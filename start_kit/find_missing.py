@@ -1,10 +1,12 @@
 import os
 import json
+from config_reader import load_config
 
+config = load_config()
 
 filenames = set(os.listdir('videos'))
 
-content = json.load(open('WLASL_v0.3.json'))
+content = json.load(open(config['metadata_file']))
 
 missing_ids = []
 

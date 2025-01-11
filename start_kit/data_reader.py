@@ -1,6 +1,9 @@
 import json
+from config_reader import load_config
 
-file_path = 'WLASL_v0.3.json'
+config = load_config()
+
+file_path = config['metadata_file']
 
 with open(file_path) as ipf:
     content = json.load(ipf)
